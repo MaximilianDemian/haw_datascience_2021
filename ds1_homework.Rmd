@@ -1,0 +1,115 @@
+---
+title: "Session 1 - Homework"
+#output: html_notebook
+---
+
+  
+Set working directory:
+```{r}
+setwd("/Users/demian/Desktop/data_science")
+getwd()
+```
+
+Load required packages:
+```{r}
+library(tidyverse)
+library(readr)
+```
+
+Import datasets:
+```{r}
+books <- read_delim("BX-Books.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+View(books)
+
+# users <- read_delim("BX-Users.csv", 
+#     ";", escape_backslash = TRUE, escape_double = FALSE, 
+#     trim_ws = TRUE)
+# View(users)
+
+ratings <- read_delim("BX-Book-Ratings.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+View(ratings)
+```
+
+Clean data: use valid ISBNs only
+
+a) ratings: delete non-numeric characters from string and strings with length < 10
+```{r}
+ratings$ISBN <- gsub("[^0-9]", "", ratings$ISBN) 
+
+sum(str_length(ratings$ISBN) == 10)
+ratings %>%
+  count(str_length(ISBN)==10) 
+
+# numbers_only <- function(x) !grepl("\\D", x)
+# sum(numbers_only(ratings$ISBN)==TRUE)
+# ratings %>%
+#   count(numbers_only(ISBN)==TRUE) 
+
+ratings <- ratings %>%
+  filter(str_length(ISBN) == 10)
+#View(ratings)
+
+```
+
+b) books: delete non-numeric characters from string and strings with length < 10
+```{r}
+books$ISBN <- gsub("[^0-9]", "", books$ISBN) 
+
+books <- books %>%
+  filter(str_length(ISBN) == 10)
+#View(books)
+```
+
+Match datasets books and ratings:
+```{r}
+books_w_ratings <- books %>%
+  left_join(ratings)
+```
+
+#Question 1: Welche Bücher sind am besten bewertet?
+```{r}
+hist(books_w_ratings$`Book-Rating`)
+hist(books_w_ratings$`Book-Rating`[books_w_ratings$`Book-Rating`!=0])
+summary(books_w_ratings$`Book-Rating`)
+sum(books_w_ratings$`Book-Rating` == 0, na.rm = TRUE)
+sum(books_w_ratings$`Book-Rating` != 0, na.rm = TRUE)
+sum(is.na(books_w_ratings$`Book-Rating`))
+length(unique(books_w_ratings$ISBN))
+
+books_w_ratings %>%
+  group_by(ISBN) %>%
+  summarise(gesamtbewertung = mean(`Book-Rating`)) %>% 
+  arrange(desc(gesamtbewertung))
+```
+
+
+#Question 2: Sollte die Anzahl der Bewertungen auch mit reinspielen?
+```{r}
+books_w_ratings %>%
+  group_by(ISBN) %>%
+  summarise(gesamtbewertung = mean(`Book-Rating`), anzahl_bewertungen = n()) %>% 
+  arrange(desc(gesamtbewertung), desc(anzahl_bewertungen))
+```
+
+# Question 3: Welche Autoren sind am besten bewertet?
+```{r}
+books_w_ratings %>%
+  group_by(`Book-Author`) %>%
+  summarise(gesamtbewertung = mean(`Book-Rating`)) %>% 
+  arrange(desc(gesamtbewertung))
+```
+
+
+# Question 4: Welcher Verlag hat die besten Bücher?
+```{r}
+books_w_ratings %>%
+  group_by(`Publisher`) %>%
+  summarise(gesamtbewertung = mean(`Book-Rating`)) %>% 
+  arrange(desc(gesamtbewertung))
+```
+
+

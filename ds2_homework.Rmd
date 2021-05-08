@@ -1,0 +1,147 @@
+---
+title: "Session 2 - Homework"
+#output: html_notebook
+---
+
+#pre-setting
+```{r}
+#set working directory:
+setwd("/Users/demian/Desktop/data_science")
+getwd()
+
+#required packages:
+library(tidyverse)
+library(readr)
+
+#import datasets:
+##books
+books <- read_delim("BX-Books.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+names(books) <- tolower(names(books)) #lower case column names
+colnames(books) <- gsub("\\-", "_", colnames(books)) #replace column names' "-" by "_"
+
+##users
+users <- read_delim("BX-Users.csv",
+    ";", escape_backslash = TRUE, escape_double = FALSE,
+    trim_ws = TRUE)
+names(users) <- tolower(names(users))
+colnames(users) <- gsub("\\-", "_", colnames(users))
+
+##ratings
+ratings <- read_delim("BX-Book-Ratings.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+names(ratings) <- tolower(names(ratings))
+colnames(ratings) <- gsub("\\-", "_", colnames(ratings))
+```
+
+#data cleaning
+```{r}
+#books:
+##ISBN (valid ISBNs only - exclude: all letters but X in last position, length of string != 10 digits)
+books <- books %>% 
+  mutate(isbn = gsub("((?<=\\d)X$)|\\D", "\\1", isbn, perl = TRUE)) %>% 
+  filter(str_length(isbn) == 10)
+##author
+books <- books %>% 
+  mutate(book_author = str_to_lower(book_author)) %>% #lower case author names
+  mutate(book_author = str_replace(book_author, "ç", "c")) %>% #replace author names' "ç" by "c"
+  mutate(book_author = gsub("\\.", "", book_author)) #exclude "." from author names
+##publisher
+books <- books %>% 
+  mutate(publisher = str_to_lower(publisher)) #lower case publisher names
+##title
+books <- books %>% 
+  mutate(book_title = str_to_lower(book_title)) %>% #lower case book titles
+  select(-image_url_s, -image_url_m, -image_url_l) #remove irrelevant columns 
+##year of publication (valid annual details only - replace year_of_publication = 0 or > 2021 by NA)
+books <- books %>% 
+  mutate(year_of_publication = replace(year_of_publication, which(year_of_publication==0 | year_of_publication>2021), NA))
+
+#ratings
+##ISBN (see books)
+ratings <- ratings %>% 
+  mutate(isbn = gsub("[^0-9A-Za-z]", "", isbn)) %>% #remove special characters
+  mutate(isbn = gsub("((?<=\\d)X$)|\\D", "\\1", isbn, perl = TRUE)) %>% 
+  filter(str_length(isbn) == 10)
+##book-rating (valid ratings only (1-10) - replace book_rating = 0 by NA))
+ratings <- ratings %>% 
+  mutate(book_rating = replace(book_rating, which(book_rating==0), NA)) 
+
+#users
+##age (valid ages only - replace age < 5 [illiteracy] and > 99 [unlikely] by NA)
+users <- users %>% 
+  mutate(age = as.numeric(age))
+hist(users$age)
+boxplot(users$age)
+users <- users %>% 
+  mutate(age = replace(age, which(age==0 | age>99 | age<5), NA))
+```
+
+#join datasets
+```{r}
+books_w_ratings <- books %>% 
+  left_join(ratings)
+
+d <- books_w_ratings %>% 
+  left_join(users)
+```
+
+#1. Gibt es eine Korrelation zwischen Anzahl Bücher pro Publisher und Anzahl Ratings, die die Bücher eines Publishers erhalten? (Hier müssen Sie wieder etwas data wrangling betreiben)
+Answer: Yes, there is a high correlation between the number of books per publisher and the number of ratings the publisher receives per book - bigger publishers, on average, seem to be more likely to receive a rating for their books
+
+```{r}
+#aggregate number of ratings per book and publisher & number of books per publisher
+d <- d %>%
+  group_by(publisher) %>%
+  mutate(n_books = n_distinct(isbn)) %>% 
+  mutate(n_ratings = length(book_rating[!is.na(book_rating)]))
+
+#collapse d by publisher 
+d_col <- d %>% distinct(publisher, n_books, n_ratings)
+#run correlation test for collapsed dataset on number of books and number of ratings per publisher
+cor.test(d_col$n_books, d_col$n_ratings)
+```
+
+#3. Haben ältere Bücher mehr Ratings, weil sie mehr Zeit haben, um Ratings zu sammeln?
+Answer: There is seemingly no correlation between the age of a book and the number of ratings it got - however, this relationship is likely to be distorted by the fact that most books contained in the dataset were published before the time a majority of people had access to computers, hence books more recently published, i.e. once people had access, were comparatively more likely to be rated a year since their publication. Would the dataset include not only such few recently published books, a subset of the data, e.g. published after 2010, could establish a level playing field for comparison, and would be likely to show a postive relationship between the age of a book and the number of ratings it got.
+
+```{r}
+#aggregate number of ratings per book
+d <- d %>%
+  group_by(isbn) %>%
+  mutate(n_ratings2 = length(book_rating[!is.na(book_rating)]))
+
+#collapse d by isbn
+d_col2 <- d %>% distinct(isbn, year_of_publication, n_ratings2)
+#run correlation test for collapsed dataset on year of publication and number of ratings per book
+cor.test(d_col2$year_of_publication, d_col2$n_ratings2)
+plot(d_col2$year_of_publication, d_col2$n_ratings2)
+```
+
+#4. Kann man mit einer linearen Regression etwas davon vorhersagen?
+Answer: Yes, however the relationship might in both cases be non-linear
+```{r}
+#run a linear regression on the relationship between number of books and number of ratings per book per publisher
+model <- lm(d_col$n_books ~ d_col$n_ratings)
+model
+summary(model)
+plot(d_col$n_books, d_col$n_ratings)
+abline(model)
+
+#run a linear regression on the relationship between the age of a book and its number of ratings
+model2 <- lm(d_col2$n_ratings2 ~ d_col2$year_of_publication)
+model2
+summary(model2)
+plot(d_col2$year_of_publication, d_col2$n_ratings2)
+abline(model2)
+```
+
+```{r}
+d <- d %>% 
+  select(-n_books, -n_ratings, -n_ratings2)
+
+write_csv(d, "books.csv")
+```
+
