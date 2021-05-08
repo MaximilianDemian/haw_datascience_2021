@@ -1,0 +1,89 @@
+---
+title: "Session 3 - Homework"
+#output: html_notebook
+---
+
+#pre-setting
+```{r}
+#required packages:
+library(tidyverse)
+library(readr)
+library(arules)
+library(arulesViz)
+
+#import dataset:
+d <- read_csv("books.csv")
+```
+
+
+```{r}
+#create list of vectors with all book_title per user_id
+d_sub <- d %>% 
+  group_by(user_id) %>%
+  summarise(basket = paste(book_title, collapse = ";"))
+
+d_sub$basket <- strsplit(d_sub$basket,";")
+
+#naming list transactions
+a_list <- d_sub$basket
+names(a_list) <- paste("Tr",c(1:92174), sep = "")
+head(a_list)
+```
+
+
+
+```{r}
+##transform into transactions-format
+trans <- as(a_list, "transactions")
+trans
+```
+
+
+#1. Spielen Sie mit den Support- und Confidence-Werten. Was fällt Ihnen auf?
+Answer: Relatively low region of common support (max 0.7 percent)
+
+```{r}
+#mining rules
+trans.rules <- apriori(trans, parameter=list(supp=0.01, conf=0.3, 
+                                                target="rules"))
+
+
+trans.rules <- apriori(trans, parameter=list(supp=0.0001, conf=0.3, 
+                                                target="rules"))
+summary(trans.rules@quality$support)
+
+trans.rules <- apriori(trans, parameter=list(supp=0.001, conf=0.3, 
+                                                target="rules"))
+summary(trans.rules@quality$confidence)
+
+trans.rules <- apriori(trans, parameter=list(supp=0.001, conf=0.1, 
+                                                target="rules"))
+```
+
+
+
+```{r}
+trans.rules.head <- head(trans.rules, 10)
+inspect(subset(trans.rules.head))
+head(inspect(subset(trans.rules)),10)
+```
+
+```{r}
+subrules <- head(trans.rules, n = 15, by = "lift")
+
+
+plot(subrules, method = "graph")
+```
+
+
+#2. Wir haben jetzt alle Bewertungen drin, ergibt das Sinn?
+Answer: For a successful algorithm, people should only be recommended books other people buying the same "base"-book liked.
+
+#3. Wie könnte eine bessere Lösung aussehen?
+Answer: Examine regions of common support only for books with ratin >=5
+
+#4. Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Transaktionen enthalten sind
+#5. Fällt Ihnen etwas in der Datenqualität auf?
+#6. Wie könnte man das mit regulären Ausdrücken beheben?
+#7. Wie kann man nun noch sicherstellen, dass nur die Autoren weiterempfohlen werden, deren Bücher man auch (mehrheitlich) gut fand?
+#8. Welche anderen Features wären sinnvoll?
