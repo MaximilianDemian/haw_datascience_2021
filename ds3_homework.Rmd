@@ -3,7 +3,9 @@ title: "Session 3 - Homework"
 #output: html_notebook
 ---
 
-#pre-setting
+# Assoziationsanalyse
+
+## pre-setting
 ```{r}
 #required packages:
 library(tidyverse)
@@ -18,72 +20,165 @@ d <- read_csv("books.csv")
 
 ```{r}
 #create list of vectors with all book_title per user_id
-d_sub <- d %>% 
-  group_by(user_id) %>%
-  summarise(basket = paste(book_title, collapse = ";"))
-
-d_sub$basket <- strsplit(d_sub$basket,";")
+list_a <- split(d$book_title, d$user_id)
 
 #naming list transactions
-a_list <- d_sub$basket
-names(a_list) <- paste("Tr",c(1:92174), sep = "")
-head(a_list)
+names(list_a) <- paste("Tr",c(1:92173), sep = "")
+head(list_a)
 ```
 
 
 
 ```{r}
-##transform into transactions-format
-trans <- as(a_list, "transactions")
-trans
+#transform list into transactions-format
+trans_a <- as(list_a, "transactions")
+trans_a
 ```
 
 
-#1. Spielen Sie mit den Support- und Confidence-Werten. Was fällt Ihnen auf?
-Answer: Relatively low region of common support (max 0.7 percent)
+# 1. Spielen Sie mit den Support- und Confidence-Werten. Was fällt Ihnen auf?
+Answer: In the full dataset, relatively low region of common support (max 0.3 percent), and low confidence (median 0.4 percent)
 
 ```{r}
 #mining rules
-trans.rules <- apriori(trans, parameter=list(supp=0.01, conf=0.3, 
+trans.rules_a <- apriori(trans_a, parameter=list(supp=0.01, conf=0.3, 
                                                 target="rules"))
 
-
-trans.rules <- apriori(trans, parameter=list(supp=0.0001, conf=0.3, 
+trans.rules_a <- apriori(trans_a, parameter=list(supp=0.001, conf=0.001, 
                                                 target="rules"))
-summary(trans.rules@quality$support)
+summary(trans.rules_a@quality$support)
+summary(trans.rules_a@quality$confidence)
 
-trans.rules <- apriori(trans, parameter=list(supp=0.001, conf=0.3, 
-                                                target="rules"))
-summary(trans.rules@quality$confidence)
-
-trans.rules <- apriori(trans, parameter=list(supp=0.001, conf=0.1, 
+trans.rules_a <- apriori(trans_a, parameter=list(supp=0.001, conf=0.3, 
                                                 target="rules"))
 ```
 
 
 
 ```{r}
-trans.rules.head <- head(trans.rules, 10)
-inspect(subset(trans.rules.head))
-head(inspect(subset(trans.rules)),10)
+trans.rules.head_a <- head(trans.rules_a, 10)
+inspect(subset(trans.rules.head_a))
+#head(inspect(subset(a_trans.rules)),10)
 ```
 
 ```{r}
-subrules <- head(trans.rules, n = 15, by = "lift")
-
-
-plot(subrules, method = "graph")
+subrules_a <- head(trans.rules_a, n = 15, by = "lift")
+plot(subrules_a, method = "graph")
 ```
 
 
-#2. Wir haben jetzt alle Bewertungen drin, ergibt das Sinn?
+# 2. Wir haben jetzt alle Bewertungen drin, ergibt das Sinn?
 Answer: For a successful algorithm, people should only be recommended books other people buying the same "base"-book liked.
 
-#3. Wie könnte eine bessere Lösung aussehen?
-Answer: Examine regions of common support only for books with ratin >=5
+# 3. Wie könnte eine bessere Lösung aussehen?
+Answer: Examine regions of common support only for books with rating >= 6
 
-#4. Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Transaktionen enthalten sind
-#5. Fällt Ihnen etwas in der Datenqualität auf?
-#6. Wie könnte man das mit regulären Ausdrücken beheben?
-#7. Wie kann man nun noch sicherstellen, dass nur die Autoren weiterempfohlen werden, deren Bücher man auch (mehrheitlich) gut fand?
-#8. Welche anderen Features wären sinnvoll?
+```{r}
+d_red <- d[d$book_rating >= 6,]
+d_red[!is.na(d_red$book_rating), ]
+
+list_b <- split(d_red$book_title, d_red$user_id)
+
+#naming list transactions
+names(list_b) <- paste("Tr",c(1:61337), sep = "")
+head(list_b)
+```
+
+```{r}
+##transform into transactions-format
+trans_b <- as(list_b, "transactions")
+trans_b
+```
+
+
+```{r}
+#mining rules
+trans.rules_b <- apriori(trans_b, parameter=list(supp=0.0007, conf=0.3, 
+                                                target="rules"))
+```
+
+```{r}
+trans.rules.head_b <- head(trans.rules_b, 10)
+inspect(subset(trans.rules.head_b))
+#head(inspect(subset(a_trans.rules)),10)
+```
+
+```{r}
+subrules_b <- head(trans.rules_b, n = 15, by = "lift")
+plot(subrules_b, method = "graph")
+```
+
+#4. Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Autoren in den Transaktionen enthalten sind
+```{r}
+list_c <- split(d$book_author, d$user_id)
+
+#naming list transactions
+names(list_c) <- paste("Tr",c(1:92173), sep = "")
+head(list_c)
+```
+
+```{r}
+##transform into transactions-format
+trans_c <- as(list_c, "transactions")
+trans_c
+```
+
+```{r}
+#mining rules
+trans.rules_c <- apriori(trans_c, parameter=list(supp=0.004, conf=0.3, 
+                                                target="rules"))
+```
+
+```{r}
+trans.rules.head_c <- head(trans.rules_c, 10)
+inspect(subset(trans.rules.head_c))
+#head(inspect(subset(a_trans.rules)),10)
+```
+
+```{r}
+subrules_c <- head(trans.rules_c, n = 15, by = "lift")
+plot(subrules_c, method = "graph")
+```
+
+# 5. Fällt Ihnen etwas in der Datenqualität auf?
+Answer: already cleaned in ds2_homework
+
+# 6. Wie könnte man das mit regulären Ausdrücken beheben?
+Answer: already cleaned in ds2_homework
+
+# 7. Wie kann man nun noch sicherstellen, dass nur die Autoren weiterempfohlen werden, deren Bücher man auch (mehrheitlich) gut fand?
+```{r}
+d_red <- d[d$book_rating >= 6,]
+d_red[!is.na(d_red$book_rating), ]
+
+list_d <- split(d_red$book_author, d_red$user_id)
+
+#naming list transactions
+names(list_d) <- paste("Tr",c(1:61337), sep = "")
+head(list_d)
+```
+
+```{r}
+##transform into transactions-format
+trans_d <- as(list_d, "transactions")
+trans_d
+```
+
+```{r}
+#mining rules
+trans.rules_d <- apriori(trans_d, parameter=list(supp=0.001, conf=0.3, 
+                                                target="rules"))
+```
+```{r}
+trans.rules.head_d <- head(trans.rules_d, 10)
+inspect(subset(trans.rules.head_d))
+```
+
+```{r}
+subrules_d <- head(trans.rules_d, n = 15, by = "lift")
+plot(subrules_d, method = "graph")
+```
+
+
+# 8. Welche anderen Features wären sinnvoll?
+Answer: categorize by genre, combine book and author associations
