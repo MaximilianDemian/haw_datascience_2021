@@ -298,5 +298,10 @@ pROC_obj <- roc(model.results.dt$survived,model.results.dt$`1`,
 ```
 
 ## 2. Was sind die Unterschiede in der Performance der Algorithmen?
+Answer: Measured by ROC AUC, the SPV method performed considerably better as compared to Naive Bayes. 
+The Decision Tree method achieved the best performance under this measurement.
 ## 3. Finden Sie Erklärungen dafür.
+Answer: Given this data, SPV would be expected to perform better than Naive Bayes since the variables are most likely not independent, 
+a feature that is not being exploited by Naive Bayes. The even better performance of the decision tree might exhibit overfitting and perform 
+less good with new data compared to the other mechanisms.
 
